@@ -61,7 +61,12 @@ class Pnpm(
         return process.stdout.lines().filter { it.isNotEmpty() }.mapTo(mutableSetOf()) { File(it) }
     }
 
-    override fun command(workingDir: File?) = if (Os.isWindows) "pnpm.cmd" else "pnpm"
+    override fun command(workingDir: File?) =
+        if (Os.isWindows) {
+            "pnpm.cmd"
+        } else {
+            "/home/frank/.nvm/versions/node/v18.12.1/bin/node /home/frank/.nvm/versions/node/v18.12.1/bin/pnpm"
+        }
 
     override fun getVersionRequirement(): RangesList = RangesListFactory.create("5.* - 9.*")
 
