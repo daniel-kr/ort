@@ -611,7 +611,7 @@ internal fun List<String>.groupLines(vararg markers: String): List<String> {
     }
 }
 
-private fun parseProject(packageJsonFile: File, analysisRoot: File, managerName: String): Project {
+internal fun parseProject(packageJsonFile: File, analysisRoot: File, managerName: String): Project {
     Npm.logger.debug { "Parsing project info from '$packageJsonFile'." }
 
     val packageJson = parsePackageJson(packageJsonFile)
