@@ -119,14 +119,6 @@ private object DependencyMapSerializer : KSerializer<Map<String, Dependency>> by
     private fun YamlNode.decodeDependency(): Dependency {
         if (this is YamlScalar) return HostedDependency(yamlScalar.content)
 
-        yamlMap.get<YamlScalar>("sdk")?.let { sdk ->
-            return SdkDependency(sdk = sdk.content)
-        }
-
-        yamlMap.get<YamlScalar>("path")?.let { path ->
-            return PathDependency(path = path.content)
-        }
-
         yamlMap.get<YamlNode>("hosted")?.let { hosted ->
             val version = checkNotNull(yamlMap.get<YamlScalar>("version")).content
             val url = if (hosted is YamlMap) {
@@ -148,6 +140,14 @@ private object DependencyMapSerializer : KSerializer<Map<String, Dependency>> by
             } else {
                 GitDependency(url = git.yamlScalar.content)
             }
+        }
+
+        yamlMap.get<YamlScalar>("path")?.let { path ->
+            return PathDependency(path = path.content)
+        }
+
+        yamlMap.get<YamlScalar>("sdk")?.let { sdk ->
+            return SdkDependency(sdk = sdk.content)
         }
 
         throw SerializationException("Unexpected dependency node format.")
