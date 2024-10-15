@@ -108,11 +108,8 @@ private object DependencyMapSerializer : KSerializer<Map<String, Dependency>> by
     override fun deserialize(decoder: Decoder): Map<String, Dependency> {
         val input = decoder.beginStructure(descriptor) as YamlInput
 
-        val result = when (val node = input.node) {
-            is YamlScalar -> emptyMap()
-            is YamlMap -> node.entries.asSequence().associateBy({ it.key.content }, { it.value.decodeDependency() })
-            else -> throw SerializationException("Unexpected YAML node type: ${node.javaClass.simpleName}.")
-        }
+        val dependenciesNode = input.node as YamlMap
+        val result = dependenciesNode.entries.asSequence().associate { it.key.content to it.value.decodeDependency() }
 
         input.endStructure(descriptor)
 
