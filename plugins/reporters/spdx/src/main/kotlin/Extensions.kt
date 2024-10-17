@@ -21,20 +21,9 @@
 
 package org.ossreviewtoolkit.plugins.reporters.spdx
 
+import org.ossreviewtoolkit.model.*
 import java.util.concurrent.atomic.AtomicInteger
 
-import org.ossreviewtoolkit.model.ArtifactProvenance
-import org.ossreviewtoolkit.model.Hash
-import org.ossreviewtoolkit.model.Identifier
-import org.ossreviewtoolkit.model.LicenseFinding
-import org.ossreviewtoolkit.model.OrtResult
-import org.ossreviewtoolkit.model.Package
-import org.ossreviewtoolkit.model.Provenance
-import org.ossreviewtoolkit.model.RepositoryProvenance
-import org.ossreviewtoolkit.model.ScanResult
-import org.ossreviewtoolkit.model.SourceCodeOrigin
-import org.ossreviewtoolkit.model.VcsInfo
-import org.ossreviewtoolkit.model.VcsType
 import org.ossreviewtoolkit.model.licenses.Findings
 import org.ossreviewtoolkit.model.licenses.LicenseInfoResolver
 import org.ossreviewtoolkit.model.licenses.LicenseView
@@ -167,13 +156,7 @@ internal fun Package.toSpdxPackage(
         externalRefs = if (type == SpdxPackageType.PROJECT) emptyList() else toSpdxExternalReferences(),
         filesAnalyzed = packageVerificationCode != null,
         homepage = homepageUrl.nullOrBlankToSpdxNone(),
-        licenseConcluded = when (type) {
-            // Clear the concluded license as it might need to be different for the source artifact.
-            SpdxPackageType.SOURCE_PACKAGE -> SpdxConstants.NOASSERTION
-            // Clear the concluded license as it might need to be different for the VCS location.
-            SpdxPackageType.VCS_PACKAGE -> SpdxConstants.NOASSERTION
-            else -> concludedLicense.nullOrBlankToSpdxNoassertionOrNone()
-        },
+        licenseConcluded = concludedLicense.nullOrBlankToSpdxNoassertionOrNone(),
         licenseDeclared = declaredLicensesProcessed.toSpdxDeclaredLicense(),
         licenseInfoFromFiles = if (packageVerificationCode == null) {
             emptyList()
@@ -205,6 +188,7 @@ private fun OrtResult.getPackageVerificationCode(id: Identifier, type: SpdxPacka
     when (type) {
         SpdxPackageType.VCS_PACKAGE -> getFileListForId(id).takeIf { it?.provenance is RepositoryProvenance }
         SpdxPackageType.SOURCE_PACKAGE -> getFileListForId(id).takeIf { it?.provenance is ArtifactProvenance }
+        SpdxPackageType.PROJECT -> getFileListForId(id).takeIf { it?.provenance is KnownProvenance }
         else -> null
     }?.let { fileList ->
         calculatePackageVerificationCode(fileList.files.map { it.sha1 }.asSequence())
