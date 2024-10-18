@@ -178,7 +178,7 @@ internal fun Package.toSpdxPackage(
                 .sorted()
         },
         packageVerificationCode = packageVerificationCode,
-        name = id.name,
+        name = listOf(id.namespace, id.name).filter { s -> s.isNotEmpty() }.joinToString(":"),
         summary = description.nullOrBlankToSpdxNone(),
         versionInfo = id.version
     )
