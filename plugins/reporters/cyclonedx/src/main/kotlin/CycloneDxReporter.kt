@@ -205,7 +205,9 @@ class CycloneDxReporter : Reporter {
                 input.ortResult.dependencyNavigator.projectDependencies(project, maxDepth = 1)
             }
 
-            packages.forEach { (pkg, _) ->
+            val projectsAndPackages = projects.map { it.toPackage().toCuratedPackage() } + packages
+
+            projectsAndPackages.forEach { (pkg, _) ->
                 val dependencyType = if (pkg.id in allDirectDependencies) "direct" else "transitive"
                 addPackageToBom(input, pkg, bom, dependencyType)
             }

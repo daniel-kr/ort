@@ -21,20 +21,9 @@
 
 package org.ossreviewtoolkit.plugins.reporters.spdx
 
+import org.ossreviewtoolkit.model.*
 import java.util.concurrent.atomic.AtomicInteger
 
-import org.ossreviewtoolkit.model.ArtifactProvenance
-import org.ossreviewtoolkit.model.Hash
-import org.ossreviewtoolkit.model.Identifier
-import org.ossreviewtoolkit.model.LicenseFinding
-import org.ossreviewtoolkit.model.OrtResult
-import org.ossreviewtoolkit.model.Package
-import org.ossreviewtoolkit.model.Provenance
-import org.ossreviewtoolkit.model.RepositoryProvenance
-import org.ossreviewtoolkit.model.ScanResult
-import org.ossreviewtoolkit.model.SourceCodeOrigin
-import org.ossreviewtoolkit.model.VcsInfo
-import org.ossreviewtoolkit.model.VcsType
 import org.ossreviewtoolkit.model.licenses.Findings
 import org.ossreviewtoolkit.model.licenses.LicenseInfoResolver
 import org.ossreviewtoolkit.model.licenses.LicenseView
@@ -91,9 +80,15 @@ internal fun Identifier.toSpdxId(type: SpdxPackageType): String = toSpdxId(type.
  * are no associated Copyright statements.
  */
 private fun LicenseInfoResolver.getSpdxCopyrightText(id: Identifier): String {
-    val copyrightStatements = resolveLicenseInfo(id).flatMapTo(sortedSetOf()) { it.getCopyrights() }
-    if (copyrightStatements.isEmpty()) return SpdxConstants.NONE
-    return copyrightStatements.joinToString("\n")
+    val resolveLicenseInfo = resolveLicenseInfo(id)
+    val copyrightStatements = resolveLicenseInfo.flatMapTo(hashSetOf()) { it.getCopyrights() }
+    val unmatchedCopyrightStatements = resolveLicenseInfo.unmatchedCopyrights
+        .flatMapTo(hashSetOf()) { it.value }
+            .filter { it.matchingPathExcludes.isEmpty() }
+            .map { it.statement }
+    val resultingCopyrightStatements = copyrightStatements + unmatchedCopyrightStatements
+    if (resultingCopyrightStatements.isEmpty()) return SpdxConstants.NONE
+    return resultingCopyrightStatements.sorted().joinToString("\n")
 }
 
 /**
@@ -130,8 +125,8 @@ private fun Package.toSpdxExternalReferences(): List<SpdxExternalReference> {
  */
 internal enum class SpdxPackageType(val infix: String, val suffix: String = "") {
     PROJECT("Project"),
-    BINARY_PACKAGE("Package"),
-    SOURCE_PACKAGE("Package", "source-artifact"),
+    BINARY_PACKAGE("Package", "binary"),
+    SOURCE_PACKAGE("Package", "source"),
     VCS_PACKAGE("Package", "vcs")
 }
 
@@ -167,13 +162,7 @@ internal fun Package.toSpdxPackage(
         externalRefs = if (type == SpdxPackageType.PROJECT) emptyList() else toSpdxExternalReferences(),
         filesAnalyzed = packageVerificationCode != null,
         homepage = homepageUrl.nullOrBlankToSpdxNone(),
-        licenseConcluded = when (type) {
-            // Clear the concluded license as it might need to be different for the source artifact.
-            SpdxPackageType.SOURCE_PACKAGE -> SpdxConstants.NOASSERTION
-            // Clear the concluded license as it might need to be different for the VCS location.
-            SpdxPackageType.VCS_PACKAGE -> SpdxConstants.NOASSERTION
-            else -> concludedLicense.nullOrBlankToSpdxNoassertionOrNone()
-        },
+        licenseConcluded = concludedLicense.nullOrBlankToSpdxNoassertionOrNone(),
         licenseDeclared = declaredLicensesProcessed.toSpdxDeclaredLicense(),
         licenseInfoFromFiles = if (packageVerificationCode == null) {
             emptyList()
@@ -189,7 +178,7 @@ internal fun Package.toSpdxPackage(
                 .sorted()
         },
         packageVerificationCode = packageVerificationCode,
-        name = id.name,
+        name = listOf(id.namespace, id.name).filter { s -> s.isNotEmpty() }.joinToString(":"),
         summary = description.nullOrBlankToSpdxNone(),
         versionInfo = id.version
     )
@@ -205,6 +194,7 @@ private fun OrtResult.getPackageVerificationCode(id: Identifier, type: SpdxPacka
     when (type) {
         SpdxPackageType.VCS_PACKAGE -> getFileListForId(id).takeIf { it?.provenance is RepositoryProvenance }
         SpdxPackageType.SOURCE_PACKAGE -> getFileListForId(id).takeIf { it?.provenance is ArtifactProvenance }
+        SpdxPackageType.PROJECT -> getFileListForId(id).takeIf { it?.provenance is KnownProvenance }
         else -> null
     }?.let { fileList ->
         calculatePackageVerificationCode(fileList.files.map { it.sha1 }.asSequence())
@@ -241,9 +231,8 @@ internal fun SpdxDocument.addExtractedLicenseInfo(licenseTextProvider: LicenseTe
         }
     }.flatMapTo(mutableSetOf()) { SpdxExpression.parse(it).licenses() }
 
-    val nonSpdxLicenses = allLicenses.filter { SpdxConstants.isPresent(it) && SpdxLicense.forId(it) == null }
 
-    val extractedLicenseInfo = nonSpdxLicenses.sorted().mapNotNull { license ->
+    val extractedLicenseInfo = allLicenses.sorted().mapNotNull { license ->
         licenseTextProvider.getLicenseText(license)?.let { text ->
             SpdxExtractedLicenseInfo(
                 licenseId = license,
