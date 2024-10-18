@@ -26,6 +26,7 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import org.ossreviewtoolkit.model.OrtResult
 import org.ossreviewtoolkit.model.SourceCodeOrigin.ARTIFACT
+import org.ossreviewtoolkit.model.SourceCodeOrigin.VCS
 import org.ossreviewtoolkit.model.licenses.LicenseInfoResolver
 import org.ossreviewtoolkit.reporter.LicenseTextProvider
 import org.ossreviewtoolkit.utils.ort.Environment
@@ -60,14 +61,22 @@ internal object SpdxDocumentModelMapper {
         val nextFileIndex = AtomicInteger(1)
         val packages = mutableListOf<SpdxPackage>()
         val relationships = mutableListOf<SpdxRelationship>()
+        val files = mutableListOf<SpdxFile>()
 
         val projects = ortResult.getProjects(omitExcluded = true, includeSubProjects = false).sortedBy { it.id }
         val projectPackages = projects.map { project ->
+
+            val filesForProject = if (params.fileInformationEnabled) {
+                ortResult.getSpdxFiles(project.id, licenseInfoResolver, VCS, nextFileIndex)
+            } else {
+                emptyList()
+            }
+
             val spdxProjectPackage = project.toPackage().toSpdxPackage(
                 SpdxPackageType.PROJECT,
                 licenseInfoResolver,
                 ortResult
-            )
+            ).copy(hasFiles = filesForProject.map { it.spdxId })
 
             ortResult.getDependencies(
                 id = project.id,
@@ -81,15 +90,16 @@ internal object SpdxDocumentModelMapper {
                 )
             }
 
+            files += filesForProject
             spdxProjectPackage
         }
 
-        val files = mutableListOf<SpdxFile>()
 
         ortResult.getPackages(omitExcluded = true).sortedBy { it.metadata.id }.forEach { curatedPackage ->
             val pkg = curatedPackage.metadata
 
             val filesForPackage = if (params.fileInformationEnabled) {
+                //TODO: Use SourceCodeOrigin depending on the provenance
                 ortResult.getSpdxFiles(pkg.id, licenseInfoResolver, ARTIFACT, nextFileIndex)
             } else {
                 emptyList()
