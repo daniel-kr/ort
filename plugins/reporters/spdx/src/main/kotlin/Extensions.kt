@@ -231,9 +231,8 @@ internal fun SpdxDocument.addExtractedLicenseInfo(licenseTextProvider: LicenseTe
         }
     }.flatMapTo(mutableSetOf()) { SpdxExpression.parse(it).licenses() }
 
-    val nonSpdxLicenses = allLicenses.filter { SpdxConstants.isPresent(it) && SpdxLicense.forId(it) == null }
 
-    val extractedLicenseInfo = nonSpdxLicenses.sorted().mapNotNull { license ->
+    val extractedLicenseInfo = allLicenses.sorted().mapNotNull { license ->
         licenseTextProvider.getLicenseText(license)?.let { text ->
             SpdxExtractedLicenseInfo(
                 licenseId = license,
