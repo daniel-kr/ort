@@ -80,9 +80,15 @@ internal fun Identifier.toSpdxId(type: SpdxPackageType): String = toSpdxId(type.
  * are no associated Copyright statements.
  */
 private fun LicenseInfoResolver.getSpdxCopyrightText(id: Identifier): String {
-    val copyrightStatements = resolveLicenseInfo(id).flatMapTo(sortedSetOf()) { it.getCopyrights() }
-    if (copyrightStatements.isEmpty()) return SpdxConstants.NONE
-    return copyrightStatements.joinToString("\n")
+    val resolveLicenseInfo = resolveLicenseInfo(id)
+    val copyrightStatements = resolveLicenseInfo.flatMapTo(hashSetOf()) { it.getCopyrights() }
+    val unmatchedCopyrightStatements = resolveLicenseInfo.unmatchedCopyrights
+        .flatMapTo(hashSetOf()) { it.value }
+            .filter { it.matchingPathExcludes.isEmpty() }
+            .map { it.statement }
+    val resultingCopyrightStatements = copyrightStatements + unmatchedCopyrightStatements
+    if (resultingCopyrightStatements.isEmpty()) return SpdxConstants.NONE
+    return resultingCopyrightStatements.sorted().joinToString("\n")
 }
 
 /**
