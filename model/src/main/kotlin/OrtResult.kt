@@ -252,6 +252,8 @@ data class OrtResult(
     fun getFilePathRelativeToAnalyzerRoot(project: Project, path: String): String {
         val vcsPath = relativeProjectVcsPath.getValue(project.id)
 
+        //TODO: This solution is not correct. In case of analyzing a folder with multiple git repos, paths relative to the vcs roots are not correctly mapped to the analyzer root.
+
         return buildString {
             if (vcsPath != null) {
                 if (vcsPath.isNotEmpty()) {
